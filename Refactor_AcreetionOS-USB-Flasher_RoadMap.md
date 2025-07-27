@@ -2,9 +2,9 @@
 
 ## 🧭 Why This Exists
 
-AcreetionOS deserves a simple, secure USB flasher that we can confidently recommend to new users. Right now, we’ve got a great starting point — a working Electron-based app that was built by one of our founders. It proves the concept and shows how much we care about user experience.
+AcreetionOS deserves a simple, secure USB flasher that can be confidently recommended to new users. Right now, there's a great starting point — a working Electron-based app that was built by one of the founders. It proves the concept and shows how much the team cares about user experience.
 
-But as the OS grows — and especially if we want to attract contributors, donors, or sponsors — the install flow needs to be bulletproof. We need a flasher that:
+But as the OS grows — and especially if the team wants to attract contributors, donors, or sponsors — the install flow needs to be bulletproof. The flasher needs to:
 
 * Protects the user from mistakes
 * Looks and feels trustworthy
@@ -12,13 +12,13 @@ But as the OS grows — and especially if we want to attract contributors, donor
 
 This guide outlines a plan to:
 
-1. Ship a polished MVP using what we already have
+1. Ship a polished MVP using what already exists
 2. Explore Rust + Tauri as a long-term foundation
 3. Do it all with respect for what’s been built — and room to stop at any time if it doesn’t make sense
 
 ---
 
-## 🧪 MVP Overview: What We’re Building Now
+## 🧪 MVP Overview: What I'm Building Now
 
 ### 🔧 What It Is
 
@@ -34,7 +34,7 @@ A production-ready version of Acreetion Media Creator that focuses on flashing *
 
 ## 🏗 MVP Features
 
-| Area                      | What We'll Deliver                                                            |
+| Area                      | What I'll Deliver                                                            |
 | ------------------------- | ----------------------------------------------------------------------------- |
 | **Image Handling**        | Auto-detect latest AcreetionOS ISO from URL; manual select as fallback        |
 | **Drive Detection**       | Show drive labels/capacity; exclude internal/system disks by default          |
@@ -66,7 +66,7 @@ This is **not part of MVP**, but runs in parallel:
 
 ## 📈 Success Metrics
 
-We’ll consider the MVP successful if we:
+I'll consider the MVP successful if it achieves:
 
 * Achieve ≥ 95% successful flash rate
 * Reduce user-reported errors to < 5%
@@ -89,12 +89,12 @@ We’ll consider the MVP successful if we:
 
 ## 🎤 Team Pitch
 
-> **“We’ve got a great start — now let’s make it production-ready.”**
+> **"There's a great start — now I'll make it production-ready."**
 
-We already have a working USB flasher. That’s a win.
-Now we harden it, polish it, and ship it for real.
+There's already a working USB flasher. That's a win.
+Now I'll harden it, polish it, and ship it for real.
 
-Let’s:
+The plan:
 
 * Keep building on the existing Electron app (no wasted work)
 * Add the basics users expect: security, stability, polish
@@ -109,11 +109,11 @@ This isn’t a rewrite-for-the-sake-of-it. It’s a dual-track approach:
 
 ## 🔄 And Hey — This Might Go Nowhere (And That’s Okay)
 
-Let’s be honest: this project might stall out. We might get it to MVP and decide that’s “good enough.” Or we might discover users don’t really need it.
+Let's be honest: this project might stall out. I might get it to MVP and decide that's "good enough." Or I might discover users don't really need it.
 
-That’s totally fine.
+That's totally fine.
 
-This is a low-pressure proposal with a clear path, not a forever commitment. We’ll treat it like an experiment — ship something, see how it feels, and decide what to do next together. No egos. No drama. Just honest work.
+This is a low-pressure proposal with a clear path, not a forever commitment. I'll treat it like an experiment — ship something, see how it feels, and decide what to do next. No egos. No drama. Just honest work in support of the AcreetionOS Team.
 
 ---
 

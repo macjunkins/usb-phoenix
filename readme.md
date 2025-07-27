@@ -2,24 +2,28 @@
 
 ## 🧭 What This Is
 
-A production-ready USB flasher specifically for AcreetionOS, built to provide a trustworthy and polished installation experience. This project represents our commitment to making Linux installation accessible and reliable.
+A production-ready USB flasher specifically for AcreetionOS, built to provide a trustworthy and polished installation experience. This project represents my commitment to making Linux installation accessible and reliable in support of the AcreetionOS Team.
 
-**Current Status:** We're hardening and polishing an existing Electron-based flasher to create a solid MVP that we can confidently recommend to users.
+**Current Status:** I'm hardening and polishing an existing Electron-based flasher to create a solid MVP that can be confidently recommended to users.
 
-## 🎯 Why We're Building This
+## 🎯 Why I'm Building This
 
 AcreetionOS deserves a USB flasher that:
 
 * **Protects users** from common flashing mistakes
 * **Looks and feels trustworthy** to new Linux users
 * **Can evolve** into a broader tool for the Linux community
-* **Supports our growth** as we attract contributors, donors, and sponsors
+* **Supports the team's growth** as they attract contributors, donors, and sponsors
 
-This isn't just about flashing ISOs — it's about creating a professional first impression for our operating system.
+This isn't just about flashing ISOs — it's about creating a professional first impression for the AcreetionOS operating system.
+
+## 🙏 Credits
+
+This project is inspired by and built in support of the **AcreetionOS Team**. The original idea and vision for this USB flasher comes from their dedication to creating an accessible and user-friendly Linux distribution. We're grateful for their innovative work and commitment to the open-source community.
 
 ## 🏗 Current Focus: MVP Development
 
-### What We're Building Now
+### What I'm Building Now
 
 A production-ready version of the Acreetion Media Creator that focuses on **AcreetionOS only**, with:
 
@@ -29,7 +33,7 @@ A production-ready version of the Acreetion Media Creator that focuses on **Acre
 
 ### Key Features
 
-| Area | What We're Delivering |
+| Area | What I'm Delivering |
 |------|----------------------|
 | **Image Handling** | Auto-detect latest AcreetionOS ISO; manual selection as fallback |
 | **Drive Detection** | Show drive labels/capacity; exclude internal/system disks by default |
@@ -132,7 +136,7 @@ We welcome contributions! This project is designed to be approachable for develo
 1. **Start Small:** Pick up a "good first issue" or documentation improvement
 2. **Focus on Quality:** We prioritize clean, maintainable code over quick fixes
 3. **Ask Questions:** Open issues for discussion before major changes
-4. **Test Thoroughly:** Help us ensure reliability across different systems
+4. **Test Thoroughly:** Help ensure reliability across different systems
 
 ### Development Guidelines
 
@@ -147,9 +151,21 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 📞 Contact & Community
 
+### Project Support
 * **Issues:** Use GitHub issues for bugs, feature requests, and questions
-* **Discussions:** Join our community forum for broader discussions
+* **Discussions:** Join the community forum for broader discussions
 * **Security:** Report security issues privately to [security@acreetionos.org]
+
+### Connect with AcreetionOS Team
+
+The AcreetionOS team is the driving force behind this project. Connect with them directly:
+
+* **🌐 Website:** [https://acreetionos.org](https://acreetionos.org)
+* **📧 Email:** [acreetionos@gmail.com](mailto:acreetionos@gmail.com)
+* **🐙 GitHub:** [https://github.com/AcreetionOS-Linux](https://github.com/AcreetionOS-Linux)
+* **💬 Discord:** [Join the AcreetionOS Discord](https://discord.gg/AJ6uuvtDXY)
+
+Whether you're interested in contributing to AcreetionOS itself, need support, or want to join their community, these channels will connect you directly with the team.
 
 ---
 
