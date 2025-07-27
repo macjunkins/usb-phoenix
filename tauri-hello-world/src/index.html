@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AcreetionOS Hello World</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎛 AcreetionOS Hello World</h1>
+            <p class="subtitle">Tauri + Rust Proof-of-Concept</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Greeting Section -->
+            <section class="card">
+                <h2>👋 Personal Greeting</h2>
+                <div class="input-group">
+                    <input type="text" id="name-input" placeholder="Enter your name" value="Developer">
+                    <button id="greet-btn" class="btn btn-primary">Greet Me</button>
+                </div>
+                <div id="greeting-result" class="result"></div>
+            </section>
+
+            <!-- System Information Section -->
+            <section class="card">
+                <h2>💻 System Information</h2>
+                <button id="system-info-btn" class="btn btn-secondary">Get System Info</button>
+                <div id="system-info-result" class="result"></div>
+            </section>
+
+            <!-- Counter Demo Section -->
+            <section class="card">
+                <h2>🔢 Counter Demo</h2>
+                <div class="counter-controls">
+                    <button id="increment-btn" class="btn btn-success">Increment</button>
+                    <button id="get-counter-btn" class="btn btn-info">Get Count</button>
+                    <button id="reset-counter-btn" class="btn btn-warning">Reset</button>
+                </div>
+                <div id="counter-result" class="result">
+                    <span class="counter-display">Count: <span id="counter-value">0</span></span>
+                </div>
+            </section>
+
+            <!-- Timestamp Section -->
+            <section class="card">
+                <h2>⏰ Current Time</h2>
+                <button id="timestamp-btn" class="btn btn-secondary">Get Timestamp</button>
+                <div id="timestamp-result" class="result"></div>
+            </section>
+
+            <!-- Mock USB Devices Section -->
+            <section class="card">
+                <h2>🔌 Mock USB Devices</h2>
+                <p class="description">Preview of USB device detection for the future flasher</p>
+                <button id="usb-devices-btn" class="btn btn-primary">Scan Devices</button>
+                <div id="usb-devices-result" class="result"></div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>Built with ❤️ for AcreetionOS • Tauri + Rust</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
