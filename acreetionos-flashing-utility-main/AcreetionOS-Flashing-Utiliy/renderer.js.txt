@@ -1,0 +1,243 @@
+const { ipcRenderer } = require('electron');
+
+let isFlashing = false;
+
+// Load ISO files from the website
+function loadISOs() {
+  const select = document.getElementById('iso-select');
+  const refreshBtn = document.getElementById('refresh-iso-btn');
+  
+  // Show loading state
+  select.innerHTML = '<option value="">Loading available ISOs...</option>';
+  refreshBtn.disabled = true;
+  updateStatus('Loading ISO list...', 'loading');
+  
+  ipcRenderer.invoke('get-iso-links').then((links) => {
+    select.innerHTML = '';
+    
+    if (links.length === 0 || (links.length === 1 && links[0].url === '')) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = links[0]?.label || 'No ISOs found';
+      select.appendChild(option);
+      updateStatus('Failed to load ISO list', 'error');
+    } else {
+      // Add default option
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Choose an ISO image...';
+      select.appendChild(defaultOption);
+      
+      // Add ISO options
+      links.forEach(({ label, url }) => {
+        if (url) { // Only add valid URLs
+          const option = document.createElement('option');
+          option.value = url;
+          option.textContent = label;
+          select.appendChild(option);
+        }
+      });
+      
+      updateStatus(`Found ${links.filter(l => l.url).length} ISO images`, 'success');
+    }
+    
+    refreshBtn.disabled = false;
+    updateFlashButtonState();
+  }).catch((error) => {
+    console.error('Error loading ISOs:', error);
+    select.innerHTML = '<option value="">Error loading ISOs - Check connection</option>';
+    updateStatus('Connection error', 'error');
+    refreshBtn.disabled = false;
+    updateFlashButtonState();
+  });
+}
+
+// Load USB devices
+function loadUSBDevices() {
+  const select = document.getElementById('usb-select');
+  const refreshBtn = document.getElementById('refresh-usb-btn');
+  
+  // Show loading state
+  select.innerHTML = '<option value="">Scanning for USB drives...</option>';
+  refreshBtn.disabled = true;
+  
+  ipcRenderer.invoke('get-usb-devices').then((devices) => {
+    select.innerHTML = '';
+    
+    if (devices.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No USB drives detected';
+      select.appendChild(option);
+      updateStatus('No USB drives found', 'error');
+    } else {
+      // Add default option
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Choose USB drive...';
+      select.appendChild(defaultOption);
+      
+      // Add USB device options
+      devices.forEach((device) => {
+        const option = document.createElement('option');
+        option.value = device.path;
+        option.textContent = `${device.label} - ${device.size}`;
+        select.appendChild(option);
+      });
+      
+      updateStatus(`Found ${devices.length} USB drive(s)`, 'success');
+    }
+    
+    refreshBtn.disabled = false;
+    updateFlashButtonState();
+  }).catch((error) => {
+    console.error('Error loading USB devices:', error);
+    select.innerHTML = '<option value="">Error detecting USB drives</option>';
+    updateStatus('Error detecting USB drives', 'error');
+    refreshBtn.disabled = false;
+    updateFlashButtonState();
+  });
+}
+
+// Update flash button state based on selections
+function updateFlashButtonState() {
+  const isoSelect = document.getElementById('iso-select');
+  const usbSelect = document.getElementById('usb-select');
+  const flashBtn = document.getElementById('flash-btn');
+  
+  const hasISO = isoSelect.value && isoSelect.value !== '';
+  const hasUSB = usbSelect.value && usbSelect.value !== '';
+  const canFlash = hasISO && hasUSB && !isFlashing;
+  
+  flashBtn.disabled = !canFlash;
+  
+  if (!hasISO && !hasUSB) {
+    updateStatus('Select ISO and USB drive to continue', 'info');
+  } else if (!hasISO) {
+    updateStatus('Select an ISO image', 'info');
+  } else if (!hasUSB) {
+    updateStatus('Select a USB drive', 'info');
+  } else if (canFlash) {
+    updateStatus('Ready to flash!', 'success');
+  }
+}
+
+// Update status with appropriate styling and icons
+function updateStatus(message, type = 'info') {
+  const statusEl = document.getElementById('status');
+  const progressBar = document.getElementById('progress-bar');
+  
+  let icon = '💾';
+  if (message.includes('Loading') || type === 'loading') {
+    icon = '🔄';
+  } else if (message.includes('Downloading') || message.includes('⬇️')) {
+    icon = '⬇️';
+    type = 'loading';
+  } else if (message.includes('Flashing') || message.includes('🔥')) {
+    icon = '🔥';
+    type = 'loading';
+  } else if (message.includes('complete') || message.includes('✅') || type === 'success') {
+    icon = '✅';
+  } else if (message.includes('failed') || message.includes('canceled') || message.includes('Error') || type === 'error') {
+    icon = '❌';
+  } else if (message.includes('Found') || message.includes('Ready')) {
+    icon = '✅';
+  } else if (message.includes('No') && (message.includes('found') || message.includes('detected'))) {
+    icon = '❌';
+  }
+
+  statusEl.innerHTML = `<span class="status-icon">${icon}</span>${message.replace(/[⬇️🔥✅❌🔄]/g, '').trim()}`;
+  
+  if (type === 'loading') {
+    statusEl.innerHTML += '<div class="loading-spinner"></div>';
+    progressBar.style.display = 'block';
+  } else {
+    progressBar.style.display = 'none';
+  }
+}
+
+// Update progress bar
+function updateProgress(percent) {
+  const progressFill = document.getElementById('progress-fill');
+  progressFill.style.width = Math.max(0, Math.min(100, percent)) + '%';
+}
+
+// Flash the ISO to USB
+function flashISO() {
+  const isoSelect = document.getElementById('iso-select');
+  const usbSelect = document.getElementById('usb-select');
+  
+  if (!isoSelect.value || !usbSelect.value) {
+    updateStatus('Please select both ISO and USB drive', 'error');
+    return;
+  }
+  
+  const isoUrl = isoSelect.value;
+  const usbPath = usbSelect.value;
+  
+  // Confirm the flash operation
+  const isoName = isoSelect.options[isoSelect.selectedIndex].text;
+  const usbName = usbSelect.options[usbSelect.selectedIndex].text;
+  
+  if (!confirm(`⚠️ WARNING: This will completely erase all data on the USB drive!\n\nISO: ${isoName}\nUSB Drive: ${usbName}\n\nContinue?`)) {
+    updateStatus('Flash canceled by user', 'error');
+    return;
+  }
+  
+  isFlashing = true;
+  updateFlashButtonState();
+  
+  // Disable controls during flashing
+  document.getElementById('iso-select').disabled = true;
+  document.getElementById('usb-select').disabled = true;
+  document.getElementById('refresh-iso-btn').disabled = true;
+  document.getElementById('refresh-usb-btn').disabled = true;
+  
+  // Start the flash process
+  ipcRenderer.invoke('flash-iso', { isoUrl, usbPath }).then((result) => {
+    if (result.success) {
+      updateStatus('✅ Flash completed successfully!', 'success');
+    } else {
+      updateStatus(`❌ Flash failed: ${result.message}`, 'error');
+    }
+  }).catch((error) => {
+    console.error('Flash error:', error);
+    updateStatus(`❌ Flash error: ${error.message}`, 'error');
+  }).finally(() => {
+    // Re-enable controls
+    isFlashing = false;
+    document.getElementById('iso-select').disabled = false;
+    document.getElementById('usb-select').disabled = false;
+    document.getElementById('refresh-iso-btn').disabled = false;
+    document.getElementById('refresh-usb-btn').disabled = false;
+    updateFlashButtonState();
+    
+    // Reset progress bar
+    setTimeout(() => {
+      updateProgress(0);
+    }, 3000);
+  });
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  // Refresh buttons
+  document.getElementById('refresh-iso-btn').addEventListener('click', loadISOs);
+  document.getElementById('refresh-usb-btn').addEventListener('click', loadUSBDevices);
+  
+  // Flash button
+  document.getElementById('flash-btn').addEventListener('click', flashISO);
+  
+  // Selection change handlers
+  document.getElementById('iso-select').addEventListener('change', updateFlashButtonState);
+  document.getElementById('usb-select').addEventListener('change', updateFlashButtonState);
+});
+
+// IPC event listeners
+ipcRenderer.on('flash-status', (event, message) => {
+  updateStatus(message);
+});
+
+ipcRenderer.on('flash-progress', (event, progress) => {
+  updateProgress(progress);
+});
