@@ -17,6 +17,10 @@ AcreetionOS deserves a USB flasher that:
 
 This isn't just about flashing ISOs — it's about creating a professional first impression for the AcreetionOS operating system.
 
+## 🙏 Credits
+
+This project is inspired by and built in support of the **AcreetionOS Team**. The original idea and vision for this USB flasher comes from their dedication to creating an accessible and user-friendly Linux distribution. We're grateful for their innovative work and commitment to the open-source community.
+
 ## 🏗 Current Focus: MVP Development
 
 ### What I'm Building Now
@@ -147,9 +151,21 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 📞 Contact & Community
 
+### Project Support
 * **Issues:** Use GitHub issues for bugs, feature requests, and questions
 * **Discussions:** Join the community forum for broader discussions
 * **Security:** Report security issues privately to [security@acreetionos.org]
+
+### Connect with AcreetionOS Team
+
+The AcreetionOS team is the driving force behind this project. Connect with them directly:
+
+* **🌐 Website:** [https://acreetionos.org](https://acreetionos.org)
+* **📧 Email:** [acreetionos@gmail.com](mailto:acreetionos@gmail.com)
+* **🐙 GitHub:** [https://github.com/AcreetionOS-Linux](https://github.com/AcreetionOS-Linux)
+* **💬 Discord:** [Join the AcreetionOS Discord](https://discord.gg/AJ6uuvtDXY)
+
+Whether you're interested in contributing to AcreetionOS itself, need support, or want to join their community, these channels will connect you directly with the team.
 
 ---
 
