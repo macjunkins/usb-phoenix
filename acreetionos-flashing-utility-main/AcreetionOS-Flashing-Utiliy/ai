@@ -1,0 +1,206 @@
+#!/bin/bash
+
+# ==============================================================================
+#  FINAL V10 ("The PostgreSQL Fix") All-in-One Open WebUI Setup Script
+#
+#  This script will:
+#  1. *** Install ALL system packages, including PostgreSQL. ***
+#  2. Install and use nvm to set a compatible Node.js version.
+#  3. Clone the Open WebUI repository.
+#  4. Delete previous broken installations to ensure a clean slate.
+#  5. Install all Node dependencies in the correct order with the correct flags.
+#  6. Replace vite.config.ts with a version that fixes all build errors.
+#  7. Build the frontend.
+#  8. Create a Python Virtual Environment (venv) for the backend.
+#  9. Install backend dependencies safely into the venv.
+#  10. Provide final launch instructions.
+# ==============================================================================
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+echo "### Starting Final V10 ('The PostgreSQL Fix') Open WebUI Setup ###"
+
+# --- Step 1: Install System Dependencies ---
+echo ""
+echo "--> Step 1: Installing system dependencies..."
+# This now includes 'postgresql' to fix the psycopg2 build error.
+sudo pacman -Syu --needed --noconfirm git python python-pip postgresql
+echo "--> System dependencies are ready."
+
+
+# --- Step 2: Install and Load Node Version Manager (nvm) ---
+echo ""
+echo "--> Step 2: Setting up Node Version Manager (nvm)..."
+export NVM_DIR="$HOME/.nvm"
+if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+  echo "--> nvm not found. Installing now..."
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+fi
+echo "--> Activating nvm for this session..."
+. "$NVM_DIR/nvm.sh"
+
+
+# --- Step 3: Install and Use the Correct Node.js Version ---
+echo ""
+echo "--> Step 3: Installing and activating a compatible Node.js version (v22)..."
+nvm install 22
+nvm use 22
+echo ""
+echo "--> VERIFICATION: The following commands will now run using:"
+node -v
+npm -v
+echo ""
+
+
+# --- Step 4: Clone the Open WebUI Repository ---
+echo ""
+echo "--> Step 4: Cloning Open WebUI repository (if needed)..."
+if [ -d "$HOME/open-webui" ]; then
+    echo "--> Directory '$HOME/open-webui' already exists. Re-using it."
+else
+    echo "--> Cloning Open WebUI into '$HOME/open-webui'..."
+    git clone https://github.com/open-webui/open-webui.git "$HOME/open-webui"
+fi
+cd "$HOME/open-webui"
+
+
+# --- Step 5: CLEAN UP PREVIOUS ATTEMPTS ---
+echo ""
+echo "--> Step 5: Deleting old node_modules and package-lock.json to ensure a clean start..."
+rm -rf node_modules package-lock.json
+echo "--> Cleanup complete."
+
+
+# --- Step 6: Install All Node.js Dependencies Correctly ---
+echo ""
+echo "--> Step 6: Installing ALL Node.js dependencies with the required flag..."
+
+if [ ! -f ".env" ]; then
+    echo "--> Creating .env configuration file."
+    cp -RPp .env.example .env
+fi
+
+echo "--> Installing base project dependencies (this may take several minutes)..."
+npm i --legacy-peer-deps
+
+echo "--> Installing 'vite-plugin-copy' (with conflict resolution)..."
+npm install --save-dev --legacy-peer-deps vite-plugin-copy
+
+
+# --- Step 7: Replace Config File and Build Frontend ---
+echo ""
+echo "--> Step 7: Replacing config file and building the project..."
+
+echo "--> Replacing vite.config.ts with the final correct version..."
+cat <<'EOF' > vite.config.ts
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+import { copy } from 'vite-plugin-copy';
+
+export default defineConfig({
+	plugins: [
+		sveltekit(),
+		copy([
+			{
+				src: './node_modules/pyodide/pyodide.js',
+				dest: './static/pyodide'
+			},
+			{
+				src: './node_modules/pyodide/pyodide.asm.js',
+				dest: './static/pyodide'
+			},
+			{
+				src: './node_modules/pyodide/pyodide.asm.data',
+				dest: './static/pyodide'
+			},
+			{
+				src: './node_modules/pyodide/pyodide.asm.wasm',
+				dest: './static/pyodide'
+			},
+			{
+				src: './node_modules/pyodide/pyodide_py.tar',
+				dest: './static/pyodide'
+			},
+			{
+				src: './node_modules/pyodide/repodata.json',
+				dest: './static/pyodide'
+			}
+		])
+	],
+	build: {
+		rollupOptions: {
+			external: ['y-protocols/awareness']
+		}
+	},
+	worker: {
+		format: 'es'
+	},
+	server: {
+		fs: {
+			allow: [
+				// your custom rules
+				'./static/pyodide'
+			]
+		}
+	}
+});
+EOF
+
+echo "--> Building the frontend (with all fixes applied)..."
+npm run build
+
+
+# --- Step 8: Install Backend Python Dependencies into a Virtual Environment ---
+echo ""
+echo "--> Step 8: Installing backend Python dependencies..."
+cd ./backend
+
+# Create a virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "--> Creating Python virtual environment in 'backend/venv'..."
+    python -m venv venv
+fi
+
+# Activate the venv and install the requirements
+echo "--> Activating venv and installing requirements..."
+source venv/bin/activate
+pip install -r requirements.txt -U
+deactivate # Deactivate after installation is done
+
+echo "--> Python dependencies installed successfully."
+
+
+# --- Final Instructions ---
+echo ""
+echo "=========================================================="
+echo "✅ SETUP AND BUILD COMPLETE! ✅"
+echo "=========================================================="
+echo ""
+echo "The installation is finished. Now, to run the application, you need to launch the two required services."
+echo "The start.sh script will now automatically use the virtual environment."
+echo ""
+echo "----------------------------------------------------------"
+echo "  IN TERMINAL 1: Start the Intel GPU AI Server"
+echo "----------------------------------------------------------"
+echo "Run this command:"
+echo ""
+echo "  bash ~/aiarc.sh"
+echo ""
+echo ""
+echo "----------------------------------------------------------"
+echo "  IN TERMINAL 2: Start the Open WebUI Interface"
+echo "----------------------------------------------------------"
+echo "Run these commands:"
+echo ""
+echo "  # First, activate the correct Node.js version"
+echo "  nvm use 22"
+echo ""
+echo "  # Then, navigate to the directory and start the server"
+echo "  cd ~/open-webui"
+echo "  bash start.sh"
+echo ""
+echo ""
+echo "==> After both are running, open your browser to: http://localhost:8080"
+echo ""

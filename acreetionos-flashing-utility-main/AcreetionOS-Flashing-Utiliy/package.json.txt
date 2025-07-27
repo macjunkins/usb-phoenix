@@ -1,0 +1,47 @@
+{
+  "name": "acreetionos-usb-flasher",
+  "version": "1.0.0",
+  "description": "USB flashing utility for AcreetionOS ISO images",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "rebuild": "electron-rebuild",
+    "install-deps": "npm install && electron-rebuild"
+  },
+  "keywords": ["electron", "usb", "iso", "flasher", "acreetionos"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "electron": "^30.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.acreetionos.usb-flasher",
+    "productName": "AcreetionOS USB Flasher",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "renderer.js",
+      "index.html",
+      "package.json"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  }
+}

@@ -1,0 +1,485 @@
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const path = require('path');
+const https = require('https');
+const http = require('http');
+const cheerio = require('cheerio');
+const fs = require('fs');
+const { exec, spawn } = require('child_process');
+const os = require('os');
+
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 650,
+    height: 700,
+    title: "AcreetionOS USB Flashing Utility",
+    icon: path.join(__dirname, 'assets/icon.png'), // Add an icon if you have one
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      enableRemoteModule: false
+    },
+    show: false // Don't show until ready
+  });
+
+  mainWindow.loadFile('index.html');
+  
+  // Show window when ready to prevent visual flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
+  // Handle window closed
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+// Helper function to make HTTP/HTTPS requests with better error handling
+function makeRequest(url, timeout = 15000) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https:') ? https : http;
+    
+    const req = protocol.get(url, (res) => {
+      let data = '';
+      
+      // Handle redirects (up to 5 redirects)
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        req.destroy();
+        return makeRequest(res.headers.location, timeout).then(resolve).catch(reject);
+      }
+      
+      if (res.statusCode !== 200) {
+        req.destroy();
+        return reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+      }
+      
+      res.setEncoding('utf8');
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+      res.on('error', reject);
+    });
+    
+    req.on('error', reject);
+    req.setTimeout(timeout, () => {
+      req.destroy();
+      reject(new Error(`Request timeout (${timeout}ms)`));
+    });
+  });
+}
+
+// Helper function to download a file with progress
+function downloadFile(url, savePath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https:') ? https : http;
+    const writer = fs.createWriteStream(savePath);
+    
+    const req = protocol.get(url, (res) => {
+      // Handle redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        writer.destroy();
+        fs.unlink(savePath, () => {}); // Clean up partial file
+        return downloadFile(res.headers.location, savePath, onProgress).then(resolve).catch(reject);
+      }
+      
+      if (res.statusCode !== 200) {
+        writer.destroy();
+        fs.unlink(savePath, () => {});
+        return reject(new Error(`Download failed: HTTP ${res.statusCode}`));
+      }
+      
+      const totalSize = parseInt(res.headers['content-length'], 10);
+      let downloadedSize = 0;
+      
+      res.on('data', (chunk) => {
+        downloadedSize += chunk.length;
+        writer.write(chunk);
+        
+        if (totalSize > 0 && onProgress) {
+          const progress = Math.round((downloadedSize / totalSize) * 100);
+          onProgress(progress);
+        }
+      });
+      
+      res.on('end', () => {
+        writer.end();
+        resolve(savePath);
+      });
+      
+      res.on('error', (err) => {
+        writer.destroy();
+        fs.unlink(savePath, () => {});
+        reject(err);
+      });
+    });
+    
+    req.on('error', (err) => {
+      writer.destroy();
+      fs.unlink(savePath, () => {});
+      reject(err);
+    });
+    
+    writer.on('error', (err) => {
+      req.destroy();
+      fs.unlink(savePath, () => {});
+      reject(err);
+    });
+  });
+}
+
+// Get ISO download links from AcreetionOS website
+async function getISOLinks() {
+  try {
+    // Also send this to the in-app console
+    mainWindow.webContents.send('flash-console-output', 'Fetching ISO links from acreetionos.org...');
+    console.log('Fetching ISO links from acreetionos.org...');
+    
+    const downloadPageUrl = 'https://acreetionos.org/'; 
+    
+    // Send initial loading status for ISOs
+    mainWindow.webContents.send('flash-status', 'Loading ISO list...', 'loading');
+
+    const html = await makeRequest(downloadPageUrl);
+    const $ = cheerio.load(html);
+    const links = [];
+    
+    $('a[href$=".iso"]').each((i, elem) => {
+      const $elem = $(elem);
+      const href = $elem.attr('href');
+      let text = $elem.text().trim();
+      
+      if (href) {
+        const fullUrl = new URL(href, downloadPageUrl).href;
+
+        if (!text || text.includes('.iso')) {
+          const parentText = $elem.parent().text().trim();
+          if (parentText && parentText.length > text.length) {
+            text = parentText.split('\n')[0].trim();
+          } else {
+            text = fullUrl.substring(fullUrl.lastIndexOf('/') + 1);
+          }
+        }
+        
+        links.push({
+          label: text,
+          url: fullUrl
+        });
+      }
+    });
+
+    if (links.length === 0) {
+      mainWindow.webContents.send('flash-status', 'Failed to load ISO list (No ISOs found)', 'error');
+      mainWindow.webContents.send('flash-console-output', 'ERROR: No ISOs found on acreetionos.org.');
+      return [{
+        label: 'No ISOs found on acreetionos.org',
+        url: ''
+      }];
+    }
+    
+    mainWindow.webContents.send('flash-status', `Found ${links.filter(l => l.url).length} ISO images`, 'success');
+    mainWindow.webContents.send('flash-console-output', `SUCCESS: Found ${links.filter(l => l.url).length} ISO images.`);
+    return links;
+    
+  } catch (error) {
+    console.error('Error fetching ISO links:', error);
+    mainWindow.webContents.send('flash-status', `Error loading ISOs: ${error.message}`, 'error');
+    mainWindow.webContents.send('flash-console-output', `ERROR: Error loading ISOs: ${error.message}`);
+    return [{
+      label: 'Error loading ISOs - Check your internet connection or URL',
+      url: ''
+    }];
+  }
+}
+
+// Get USB devices based on the operating system
+async function getUSBDevices() {
+  return new Promise((resolve) => {
+    const platform = os.platform();
+    let command;
+    
+    if (platform === 'linux') {
+      command = 'lsblk -d -o NAME,SIZE,MODEL,TYPE | grep disk | grep -v "loop"';
+    } else if (platform === 'darwin') { // macOS
+      command = 'diskutil list external physical | grep -E "(disk[0-9]+)"';
+    } else if (platform === 'win32') { // Windows
+      command = 'wmic logicaldisk where drivetype=2 get deviceid,size,volumename';
+    } else {
+      mainWindow.webContents.send('flash-console-output', `ERROR: Unsupported operating system: ${platform}`);
+      resolve([]);
+      return;
+    }
+    
+    mainWindow.webContents.send('flash-console-output', `Executing command to list USB devices: ${command}`);
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error getting USB devices:', error);
+        mainWindow.webContents.send('flash-console-output', `ERROR listing USB devices: ${error.message}`);
+        resolve([]);
+        return;
+      }
+      
+      const devices = [];
+      const lines = stdout.split('\n').filter(line => line.trim());
+      
+      if (platform === 'linux') {
+        lines.forEach(line => {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 2) { 
+            const name = parts[0];
+            const size = parts[1];
+            const model = parts.slice(2, parts.length -1).join(' ') || 'Unknown Device';
+            
+            devices.push({
+              path: `/dev/${name}`,
+              label: `${model.replace('disk', '').trim()} (${name})`,
+              size: size
+            });
+          }
+        });
+      } else if (platform === 'darwin') {
+        lines.forEach(line => {
+          const diskMatch = line.match(/\/dev\/(disk\d+)/);
+          const sizeMatch = line.match(/(\d+\.?\d*\s[BKMGTPEZY]i?B)/);
+          
+          if (diskMatch) {
+            const diskPath = `/dev/${diskMatch[1]}`;
+            const size = sizeMatch ? sizeMatch[1] : 'Unknown Size';
+            
+            let label = `External Disk (${diskMatch[1]})`;
+            const descriptionMatch = line.match(/(.*) \(external, physical\)/);
+            if (descriptionMatch && descriptionMatch[1]) {
+              label = descriptionMatch[1].trim();
+              label = label.replace(new RegExp(`\\s*${diskMatch[1]}$`), '').trim();
+            }
+
+            devices.push({
+              path: diskPath,
+              label: `${label} - ${size}`,
+              size: size
+            });
+          }
+        });
+      } else if (platform === 'win32') {
+        lines.slice(1).forEach(line => {
+          const parts = line.trim().split(/\s{2,}/);
+          if (parts.length >= 2) {
+            const deviceId = parts[0].trim();
+            const sizeInBytes = parseInt(parts[1].trim());
+            const volumeName = parts.length > 2 ? parts[2].trim() : 'Removable Disk';
+            
+            let displaySize = 'Unknown Size';
+            if (!isNaN(sizeInBytes)) {
+              const gb = sizeInBytes / (1024 * 1024 * 1024);
+              if (gb < 1) {
+                displaySize = `${Math.round(sizeInBytes / (1024 * 1024))}MB`;
+              } else {
+                displaySize = `${gb.toFixed(1)}GB`;
+              }
+            }
+
+            devices.push({
+              path: deviceId,
+              label: `${volumeName} (${deviceId})`,
+              size: displaySize
+            });
+          }
+        });
+      }
+      mainWindow.webContents.send('flash-console-output', `Found ${devices.length} USB devices.`);
+      resolve(devices);
+    });
+  });
+}
+
+// Flash ISO to USB device
+async function flashISO(isoUrl, usbPath) {
+  try {
+    const tempDir = path.join(os.tmpdir(), 'acreetionos-flasher');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+      mainWindow.webContents.send('flash-console-output', `Created temporary directory: ${tempDir}`);
+    } else {
+      mainWindow.webContents.send('flash-console-output', `Using temporary directory: ${tempDir}`);
+    }
+    
+    const urlParts = isoUrl.split('/');
+    const filename = urlParts[urlParts.length - 1] || 'download.iso';
+    const isoPath = path.join(tempDir, filename);
+    
+    mainWindow.webContents.send('flash-status', 'Downloading ISO...', 'loading');
+    mainWindow.webContents.send('flash-console-output', `Downloading ISO from ${isoUrl} to ${isoPath}...`);
+    
+    await downloadFile(isoUrl, isoPath, (progress) => {
+      mainWindow.webContents.send('flash-progress', progress);
+      mainWindow.webContents.send('flash-status', `Downloading ISO... ${progress}%`, 'loading');
+      // No need to send console output for every percent, as it would be too verbose
+    });
+    
+    mainWindow.webContents.send('flash-status', 'Starting flash process...', 'loading');
+    mainWindow.webContents.send('flash-console-output', `ISO download complete. Starting flash process to ${usbPath}.`);
+    mainWindow.webContents.send('flash-progress', 0); // Initialize flash progress at 0%
+    
+    const platform = os.platform();
+    let shellCommand;
+    
+    if (platform === 'linux' || platform === 'darwin') {
+      shellCommand = `pkexec dd if="${isoPath}" of="${usbPath}" bs=4M status=progress oflag=sync`;
+    } else if (platform === 'win32') {
+      const errorMessage = 'Windows flashing not implemented yet due to complexity and requiring specific tools/drivers. Please use Rufus or similar tool manually.';
+      mainWindow.webContents.send('flash-console-output', `ERROR: ${errorMessage}`);
+      throw new Error(errorMessage);
+    } else {
+      const errorMessage = 'Unsupported operating system for direct flashing.';
+      mainWindow.webContents.send('flash-console-output', `ERROR: ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+    
+    mainWindow.webContents.send('flash-console-output', `Executing flash command: \n${shellCommand}`); // Log the command
+    console.log(`Executing flash command: ${shellCommand}`); // Also to dev console
+    
+    return new Promise((resolve, reject) => {
+      mainWindow.webContents.send('flash-status', 'Flashing to USB drive...', 'loading'); // Initial flashing status
+
+      const flashProcess = exec(shellCommand, { shell: '/bin/bash' }, (error, stdout, stderr) => {
+            if (error) {
+                console.error('Flash error (dd exec):', error);
+                mainWindow.webContents.send('flash-console-output', `ERROR: Flash failed: ${error.message}`);
+                reject(new Error(`Flash failed: ${error.message}`));
+            } else {
+                console.log('dd stdout:', stdout);
+                mainWindow.webContents.send('flash-console-output', `DD STDOUT:\n${stdout}`);
+                console.log('dd stderr (final):', stderr); // Final stderr might contain summary
+                mainWindow.webContents.send('flash-console-output', `DD STDERR (final):\n${stderr}`);
+                resolve({ success: true, message: 'Flash completed successfully!' });
+            }
+            // Attempt to unlink the ISO path regardless of success/failure
+            fs.unlink(isoPath, (err) => {
+                if (err) {
+                  console.error(`Failed to delete temporary ISO file at ${isoPath}:`, err);
+                  mainWindow.webContents.send('flash-console-output', `WARNING: Failed to delete temporary ISO file at ${isoPath}: ${err.message}`);
+                }
+                else {
+                  console.log(`Temporary ISO file deleted: ${isoPath}`);
+                  mainWindow.webContents.send('flash-console-output', `Temporary ISO file deleted: ${isoPath}`);
+                }
+            });
+        });
+
+        flashProcess.stderr.on('data', (data) => {
+            const output = data.toString();
+            // Send all stderr data to the in-app console for detailed proof
+            mainWindow.webContents.send('flash-console-output', output);
+            console.log('dd stderr (raw):', output.trim()); // Still log raw to dev console
+
+            const progressMatch = output.match(/(\d+(?:\.\d+)?)\s(B|K|M|G|T)B\/s.*?(\d+)\%|\d+\sbytes\stransferred.*?(\d+)\%/);
+            if (progressMatch) {
+                let progress = 0;
+                if (progressMatch[3]) {
+                    progress = parseInt(progressMatch[3]);
+                } else if (progressMatch[4]) {
+                    progress = parseInt(progressMatch[4]);
+                }
+                
+                // Always send progress >= 0 once dd starts reporting
+                mainWindow.webContents.send('flash-progress', progress);
+                mainWindow.webContents.send('flash-status', `Flashing... ${progress}%`, 'loading');
+            } else {
+                if (output.includes('bytes transferred')) {
+                    mainWindow.webContents.send('flash-status', 'Flashing... (transferring data)', 'loading');
+                }
+            }
+        });
+        
+        // Also capture stdout, though dd progress is usually on stderr
+        flashProcess.stdout.on('data', (data) => {
+            const output = data.toString();
+            mainWindow.webContents.send('flash-console-output', `DD STDOUT:\n${output}`);
+            console.log('dd stdout (raw):', output.trim());
+        });
+
+
+      flashProcess.on('error', (error) => {
+        console.error('Flash process spawn error:', error);
+        mainWindow.webContents.send('flash-console-output', `ERROR: Flash process spawn error: ${error.message}`);
+        fs.unlink(isoPath, (err) => { if (err) console.error(`Failed to delete ISO after spawn error:`, err); });
+        reject(error);
+      });
+      
+      flashProcess.on('close', (code) => {
+          if (code !== 0 && code !== null) {
+              console.error(`Flash process exited with code ${code}`);
+              mainWindow.webContents.send('flash-console-output', `ERROR: Flash process exited with code ${code}`);
+              fs.unlink(isoPath, (err) => { if (err) console.error(`Failed to delete ISO after close error:`, err); });
+              reject(new Error(`Flash process failed with exit code ${code}`));
+          } else {
+              mainWindow.webContents.send('flash-console-output', `Flash process completed with exit code ${code}.`);
+          }
+      });
+    });
+    
+  } catch (error) {
+    console.error('Flash process error:', error);
+    mainWindow.webContents.send('flash-console-output', `CRITICAL ERROR: ${error.message}`);
+    throw error;
+  }
+}
+
+// IPC handlers
+ipcMain.handle('get-iso-links', async () => {
+  return await getISOLinks();
+});
+
+ipcMain.handle('get-usb-devices', async () => {
+  return await getUSBDevices();
+});
+
+ipcMain.handle('flash-iso', async (event, { isoUrl, usbPath }) => {
+  try {
+    return await flashISO(isoUrl, usbPath);
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// App event handlers
+app.whenReady().then(() => {
+  createWindow();
+  
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// Handle app startup
+app.on('ready', () => {
+  console.log('AcreetionOS USB Flasher started');
+  // Send initial message to the in-app console
+  if (mainWindow) {
+    mainWindow.webContents.send('flash-console-output', 'AcreetionOS USB Flasher started.');
+    mainWindow.webContents.send('flash-console-output', `Running on ${os.platform()} ${os.arch()} (Node ${process.versions.node}, Electron ${process.versions.electron})`);
+  }
+});
+
+// Prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}

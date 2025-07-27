@@ -1,0 +1,12 @@
+To BUILD:
+
+npm install
+npm run rebuild (To build from source)
+npm start (to test)
+npm run build (to build executable)
+
+npm run build does the following: 
+
+linux machines build appimages
+macos machines build .dmg images 
+windows machines build .exe images.
